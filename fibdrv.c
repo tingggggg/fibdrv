@@ -26,17 +26,17 @@ static DEFINE_MUTEX(fib_mutex);
 
 static long long fib_sequence(long long k)
 {
-    /* FIXME: C99 variable-length array (VLA) is not allowed in Linux kernel. */
-    long long f[k + 2];
+    if (k < 2)
+        return k;
 
-    f[0] = 0;
-    f[1] = 1;
-
+    long long f_0 = 0, f_1 = 1, f;
     for (int i = 2; i <= k; i++) {
-        f[i] = f[i - 1] + f[i - 2];
+        f = f_0 + f_1;
+        f_0 = f_1;
+        f_1 = f;
     }
 
-    return f[k];
+    return f;
 }
 
 static int fib_open(struct inode *inode, struct file *file)
