@@ -18,7 +18,7 @@ $(GIT_HOOKS):
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
-	$(RM) client out
+	$(RM) client out client_plot
 load:
 	sudo insmod $(TARGET_MODULE).ko
 unload:
@@ -26,6 +26,12 @@ unload:
 
 client: client.c
 	$(CC) -o $@ $^
+
+client_plot: client_plot.c
+	$(CC) -o $@ $^
+
+plot:
+	sh do_measurement.sh > /dev/null
 
 PRINTF = env printf
 PASS_COLOR = \e[32;01m
