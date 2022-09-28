@@ -14,6 +14,7 @@ sudo bash -c "echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo"
 
 #measure the performance of fibdrv
 sudo make client_plot
+sudo make client_plot_clz
 # make client_statistic
 sudo make unload
 sudo make
@@ -21,8 +22,10 @@ sudo make load
 # rm -f plot_input_statistic
 # sudo taskset -c 7 ./client_statistic
 sudo taskset -c 7 ./client_plot > plot_input
+sudo taskset -c 7 ./client_plot_clz > plot_input_clz
 # gnuplot scripts/plot-statistic.gp
 gnuplot scripts/plot.gp
+gnuplot scripts/plot_clz.gp
 make unload
 
 # restore the original system settings

@@ -40,7 +40,6 @@ static long long fib_sequence(long long k)
     return f;
 }
 
-/* fast doubling */
 static long long fib_sequence_fdoubling(long long k)
 {
     if (k < 2)
@@ -49,6 +48,81 @@ static long long fib_sequence_fdoubling(long long k)
     long long f0 = 0, f1 = 1;
     /* walk through the digit of n */
     for (unsigned int i = (1U << 31); i; i >>= 1) {
+        /* F(2k) = F(k) * [ 2 * F(k+1) – F(k) ] */
+        long long k1 = f0 * (2 * f1 - f0);
+        /* F(2k+1) = F(k)^2 + F(k+1)^2 */
+        long long k2 = f0 * f0 + f1 * f1;
+
+        if (i & k) {
+            f0 = k2;
+            f1 = k1 + k2;
+        } else {
+            f0 = k1;
+            f1 = k2;
+        }
+    }
+
+    return f0;
+}
+
+/* fast doubling w/ clz*/
+static long long fib_sequence_fdoubling_w_clz(long long k)
+{
+    if (k < 2)
+        return k;
+
+    long long f0 = 0, f1 = 1;
+    /* walk through the digit of n */
+    for (unsigned int i = (1U << (31 - __builtin_clz(k))); i; i >>= 1) {
+        /* F(2k) = F(k) * [ 2 * F(k+1) – F(k) ] */
+        long long k1 = f0 * (2 * f1 - f0);
+        /* F(2k+1) = F(k)^2 + F(k+1)^2 */
+        long long k2 = f0 * f0 + f1 * f1;
+
+        if (i & k) {
+            f0 = k2;
+            f1 = k1 + k2;
+        } else {
+            f0 = k1;
+            f1 = k2;
+        }
+    }
+
+    return f0;
+}
+
+static long long fib_sequence_fdoubling16(long long k)
+{
+    if (k < 2)
+        return k;
+
+    long long f0 = 0, f1 = 1;
+    /* walk through the digit of n */
+    for (unsigned int i = (1U << 16); i; i >>= 1) {
+        /* F(2k) = F(k) * [ 2 * F(k+1) – F(k) ] */
+        long long k1 = f0 * (2 * f1 - f0);
+        /* F(2k+1) = F(k)^2 + F(k+1)^2 */
+        long long k2 = f0 * f0 + f1 * f1;
+
+        if (i & k) {
+            f0 = k2;
+            f1 = k1 + k2;
+        } else {
+            f0 = k1;
+            f1 = k2;
+        }
+    }
+
+    return f0;
+}
+static long long fib_sequence_fdoubling6(long long k)
+{
+    if (k < 2)
+        return k;
+
+    long long f0 = 0, f1 = 1;
+    /* walk through the digit of n */
+    for (unsigned int i = (1U << 6); i; i >>= 1) {
         /* F(2k) = F(k) * [ 2 * F(k+1) – F(k) ] */
         long long k1 = f0 * (2 * f1 - f0);
         /* F(2k+1) = F(k)^2 + F(k+1)^2 */
@@ -105,6 +179,21 @@ static ssize_t fib_write(struct file *file,
     case 1:
         kt = ktime_get();
         fib_sequence_fdoubling(*offset);
+        kt = ktime_sub(ktime_get(), kt);
+        break;
+    case 2:
+        kt = ktime_get();
+        fib_sequence_fdoubling_w_clz(*offset);
+        kt = ktime_sub(ktime_get(), kt);
+        break;
+    case 3:
+        kt = ktime_get();
+        fib_sequence_fdoubling16(*offset);
+        kt = ktime_sub(ktime_get(), kt);
+        break;
+    case 4:
+        kt = ktime_get();
+        fib_sequence_fdoubling6(*offset);
         kt = ktime_sub(ktime_get(), kt);
         break;
     default:

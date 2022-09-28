@@ -18,7 +18,7 @@ $(GIT_HOOKS):
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
-	$(RM) client out client_plot
+	$(RM) client out client_plot client_plot_clz
 load:
 	sudo insmod $(TARGET_MODULE).ko
 unload:
@@ -28,6 +28,9 @@ client: client.c
 	$(CC) -o $@ $^
 
 client_plot: client_plot.c
+	$(CC) -o $@ $^
+
+client_plot_clz: client_plot_clz.c
 	$(CC) -o $@ $^
 
 plot:
