@@ -25,4 +25,4 @@ for i in dics:
         print('f(%s) fail' % str(i[0]))
         print('input: %s' %(fib))
         print('expected: %s' %(expect[i[0]]))
-        exit()
+        exit(1)
