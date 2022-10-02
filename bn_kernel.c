@@ -138,6 +138,14 @@ int bn_cpy(bn *dest, bn *src)
     return 0;
 }
 
+/* swap bn ptr */
+void bn_swap(bn *a, bn *b)
+{
+    bn tmp = *a;
+    *a = *b;
+    *b = tmp;
+}
+
 /*
  * compare length
  * return 1 if |a| > |b|
@@ -169,6 +177,7 @@ void bn_lshift(bn *src, size_t shift)
     if (!shift)
         return;
 
+    /* add size if space not enough */
     if (shift > z)
         bn_resize(src, src->size + 1);
     /* bit shift */
@@ -195,6 +204,7 @@ static void bn_do_add(const bn *a, const bn *b, bn *c)
         carry >>= 32;
     }
 
+    // remove c last digit if the last digit is not used
     if (!c->number[c->size - 1] && c->size > 1)
         bn_resize(c, c->size - 1);
 }
@@ -242,7 +252,7 @@ void bn_add(const bn *a, const bn *b, bn *c)
     } else {          // different sign
         if (a->sign)  // let a > 0, b < 0
             SWAP(a, b);
-        int cmp = bn_cmp(a, b);
+        int cmp = bn_cmp(a, b);  // compare a & b length
         if (cmp > 0) {
             /* |a| > |b| and b < 0, hence c = a - |b| */
             bn_do_sub(a, b, c);
@@ -315,6 +325,29 @@ void bn_mult(const bn *a, const bn *b, bn *c)
         bn_cpy(tmp, c);  // copy value to original c
         bn_free(c);
     }
+}
+
+/* calculate n-th Fibonacci number and save into dest */
+void bn_fib(bn *dest, unsigned int n)
+{
+    bn_resize(dest, 1);
+    if (n < 2) {
+        dest->number[0] = n;
+        return;
+    }
+
+    bn *f0 = bn_alloc(1);
+    bn *f1 = bn_alloc(1);
+    f1->number[0] = 1;
+
+    for (unsigned int i = 2; i <= n; i++) {
+        bn_add(f0, f1, dest);
+        bn_swap(f0, f1);
+        bn_cpy(f1, dest);
+    }
+
+    bn_free(f0);
+    bn_free(f1);
 }
 
 /*

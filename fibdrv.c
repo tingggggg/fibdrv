@@ -66,8 +66,10 @@ static ssize_t fib_read(struct file *file,
                         loff_t *offset)
 {
     bn *fib = bn_alloc(1);
-    bn_fib_fdoubling(fib, *offset);
-
+    if (1)
+        bn_fib_fdoubling(fib, *offset);
+    else
+        bn_fib(fib, *offset);
     char *p = bn_to_string(fib);
     size_t len = strlen(p) + 1;
     size_t left = copy_to_user(buf, p, len);

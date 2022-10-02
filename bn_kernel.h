@@ -58,6 +58,7 @@ void bn_sub(const bn *a, const bn *b, bn *c);
 void bn_mult(const bn *a, const bn *b, bn *c);
 
 /* Calculate n-th Fibonacci number and save into dest */
+void bn_fib(bn *dest, unsigned int n);
 void bn_fib_fdoubling(bn *dest, unsigned int n);
 
 #endif /* _BN_KERNEL_H_ */
