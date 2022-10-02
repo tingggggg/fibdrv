@@ -3,14 +3,13 @@
 #include "bn.h"
 
 #define ITH 1000
+#define ITER_TIMES 2000000
 
 int main()
 {
-    printf("Fib main\n");
-
     bn *fib = bn_alloc(1);
-    for (int i = 0; i < ITH + 1; i++) {
-        bn_fib_fdoubling(fib, i);
+    for (int i = 0; i < ITER_TIMES; i++) {
+        bn_fib_fdoubling(fib, 1000);
         // bn_fib(fib, i);
         char *p = bn_to_string(fib);
         printf("Fib(%d): %s\n", i, p);
