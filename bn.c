@@ -192,7 +192,7 @@ void bn_lshift(bn *src, size_t shift)
 static void bn_do_add(const bn *a, const bn *b, bn *c)
 {
     // max digits = max(sizeof(a), sizeof(b) + 1)
-    int d = max(bn_msb(a), bn_msb(b)) + 1;
+    int d = MAX(bn_msb(a), bn_msb(b)) + 1;
     d = DIV_ROUNDUP(d, 32) + !d;
     bn_resize(c, d);  // round up, min size = 1
 

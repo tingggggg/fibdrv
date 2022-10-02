@@ -21,13 +21,18 @@ $(GIT_HOOKS):
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
-	$(RM) client out
+	$(RM) client out fib
 load:
 	sudo insmod $(TARGET_MODULE).ko
 unload:
 	sudo rmmod $(TARGET_MODULE) || true >/dev/null
 
 client: client.c
+	$(CC) -o $@ $^
+
+bn.o: bn.c
+	$(CC) -c $^
+fib: fib.c bn.o
 	$(CC) -o $@ $^
 
 PRINTF = env printf

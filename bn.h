@@ -1,6 +1,8 @@
 #ifndef _BN_H_
 #define _BN_H_
 
+#include <stddef.h>
+
 /*
  * bignum data structure
  * number[0] contains least significant bits
