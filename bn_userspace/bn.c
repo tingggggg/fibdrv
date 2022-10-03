@@ -382,6 +382,10 @@ void bn_fib_fdoubling(bn *dest, unsigned int n)
         bn_mult(f2, f2, f2);
         bn_cpy(k2, f1);
         bn_add(k2, f2, k2);
+
+        /* F(2k) = F(k) * [ 2 * F(k+1) – F(k) ] */
+        /* F(2k+1) = F(k)^2 + F(k+1)^2 */
+
         if (n & i) {
             bn_cpy(f1, k2);
             bn_cpy(f2, k1);
