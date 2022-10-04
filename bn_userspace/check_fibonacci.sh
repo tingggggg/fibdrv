@@ -3,5 +3,5 @@
 #
 TEST_DATA=out
 
-./fib > $TEST_DATA
+./fib_show > $TEST_DATA
 python do_fib_check.py -f $TEST_DATA

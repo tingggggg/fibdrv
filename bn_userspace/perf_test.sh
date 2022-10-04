@@ -4,9 +4,9 @@ VERSION=${1:-unknown}
 
 echo $VERSION
 
-perf stat -o stat_results_${VERSION}.txt -r 10 -e cycles,instructions,cache-misses,cache-references,branch-instructions,branch-misses ./fib
+sudo perf stat -o stat_results_${VERSION}.txt -r 10 -e cycles,instructions,cache-misses,cache-references,branch-instructions,branch-misses ./fib
 
-perf record -g --call-graph dwarf ./fib
-perf report --stdio -g graph,0.5,caller >> report_results_${VERSION}.txt
+sudo perf record -g --call-graph dwarf ./fib
+sudo perf report --stdio -g graph,0.5,caller >> report_results_${VERSION}.txt
 
-rm *.data
+sudo rm *.data
