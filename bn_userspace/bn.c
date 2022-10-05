@@ -5,6 +5,9 @@
 
 #include "bn.h"
 
+#define INIT_ALLOC_SIZE 4
+#define ALLOC_CHUNK_SIZE 4
+
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #ifndef SWAP
 #define SWAP(x, y)           \
@@ -83,9 +86,11 @@ char *bn_to_string(const bn *src)
 bn *bn_alloc(size_t size)
 {
     bn *new = (bn *) malloc(sizeof(bn));
-    new->number = (unsigned int *) malloc(sizeof(int) * size);
-    memset(new->number, 0, sizeof(int) * size);
     new->size = size;
+    new->capacity = size > INIT_ALLOC_SIZE ? size : INIT_ALLOC_SIZE;
+    new->number = (unsigned int *) malloc(sizeof(int) * new->capacity);
+    memset(new->number, 0, sizeof(int) * size);
+
     new->sign = 0;
     return new;
 }
@@ -114,13 +119,19 @@ static int bn_resize(bn *src, size_t size)
     if (size == src->size)
         return 0;
     if (size == 0)
-        return bn_free(src);
-    src->number = realloc(src->number, sizeof(int) * size);
-    if (!src->number) /* realloc failed */
-        return -1;
+        size = 1;
+
+    if (size > src->capacity) {
+        src->capacity =
+            (size + (ALLOC_CHUNK_SIZE - 1)) & ~(ALLOC_CHUNK_SIZE - 1);
+        src->number = realloc(src->number, sizeof(int) * src->capacity);
+        if (!src->number) /* realloc failed */
+            return -1;
+    }
 
     if (size > src->size)
         memset(src->number + src->size, 0, sizeof(int) * (size - src->size));
+
     src->size = size;
     return 0;
 }
