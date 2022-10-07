@@ -5,9 +5,6 @@
 
 #include "bn.h"
 
-#define INIT_ALLOC_SIZE 4
-#define ALLOC_CHUNK_SIZE 4
-
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #ifndef SWAP
 #define SWAP(x, y)           \
@@ -38,10 +35,10 @@ static int bn_clz(const bn *src)
 }
 
 /* count the digits of most significant bit */
-static int bn_msb(const bn *src)
-{
-    return src->size * 32 - bn_clz(src);
-}
+// static int bn_msb(const bn *src)
+// {
+//     return src->size * 32 - bn_clz(src);
+// }
 
 /*
  * output bn to decimal string
@@ -136,6 +133,13 @@ static int bn_resize(bn *src, size_t size)
     return 0;
 }
 
+/* trim unused space(size) */
+static void bn_trim(bn *src)
+{
+    while (src->size > 1 && !src->number[src->size - 1])
+        src->size--;
+}
+
 /*
  * copy the value from src to dest
  * return 0 on success, -1 on error
@@ -207,8 +211,7 @@ void bn_lshift(const bn *src, size_t shift, bn *dest)
 static void bn_do_add(const bn *a, const bn *b, bn *c)
 {
     // max digits = max(sizeof(a), sizeof(b) + 1)
-    int d = MAX(bn_msb(a), bn_msb(b)) + 1;
-    d = DIV_ROUNDUP(d, 32) + !d;
+    int d = a->size + 1;
     bn_resize(c, d);  // round up, min size = 1
 
     unsigned long long int carry = 0;
@@ -220,9 +223,7 @@ static void bn_do_add(const bn *a, const bn *b, bn *c)
         carry >>= 32;
     }
 
-    // remove c last digit if the last digit is not used
-    if (!c->number[c->size - 1] && c->size > 1)
-        bn_resize(c, c->size - 1);
+    bn_trim(c);
 }
 
 /*
@@ -232,13 +233,13 @@ static void bn_do_add(const bn *a, const bn *b, bn *c)
 static void bn_do_sub(const bn *a, const bn *b, bn *c)
 {
     // max digits = max(sizeof(a), sizeof(b))
-    int d = MAX(a->size, b->size);
-    bn_resize(c, d);
+    int asize = a->size, bsize = b->size;
+    bn_resize(c, asize);
 
     long long int carry = 0;
     for (int i = 0; i < c->size; i++) {
-        unsigned int tmp1 = (i < a->size) ? a->number[i] : 0;
-        unsigned int tmp2 = (i < b->size) ? b->number[i] : 0;
+        unsigned int tmp1 = (i < asize) ? a->number[i] : 0;
+        unsigned int tmp2 = (i < bsize) ? b->number[i] : 0;
 
         carry = (long long int) tmp1 - tmp2 - carry;
         if (carry < 0) {  // borrow from next
@@ -250,10 +251,7 @@ static void bn_do_sub(const bn *a, const bn *b, bn *c)
         }
     }
 
-    d = bn_clz(c) / 32;
-    if (d == c->size)
-        --d;
-    bn_resize(c, c->size - d);
+    bn_trim(c);
 }
 
 /*
@@ -315,8 +313,7 @@ static void bn_mult_add(bn *c, int offset, unsigned long long int x)
 void bn_mult(const bn *a, const bn *b, bn *c)
 {
     // max digits = sizeof(a) + sizeof(b)
-    int d = bn_msb(a) + bn_msb(b);
-    d = DIV_ROUNDUP(d, 32) + !d;  // round up, min size = 1
+    int d = a->size + b->size;
     bn *tmp;
 
     /* make it work properly when c == a or c == b */
@@ -339,6 +336,7 @@ void bn_mult(const bn *a, const bn *b, bn *c)
     }
     c->sign = a->sign ^ b->sign;
 
+    bn_trim(c);
     if (tmp) {
         bn_cpy(tmp, c);  // copy value to original c
         bn_free(c);

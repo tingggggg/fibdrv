@@ -16,6 +16,9 @@ typedef struct _bn {
     int sign;
 } bn;
 
+#define INIT_ALLOC_SIZE 4
+#define ALLOC_CHUNK_SIZE 4
+
 /*
  * output bn to decimal string
  * Note: the returned string should be freed with the kfree()
