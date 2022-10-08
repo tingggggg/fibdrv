@@ -19,16 +19,16 @@
 #define DIV_ROUNDUP(x, len) (((x) + (len) -1) / len)
 #endif
 
-/* count leading zeros of src */
+/* count leading zeros of src->number */
 static int bn_clz(const bn *src)
 {
     int cnt = 0;
     for (int i = src->size - 1; i >= 0; i--) {
         if (src->number[i]) {
             // avoid undefined behavior when src = 0
-            return cnt + __builtin_clz(src->number[i]);
+            return cnt + builtin_clz(src->number[i]);
         } else {
-            cnt += 32;
+            cnt += DATA_BITS;
         }
     }
     return cnt;
@@ -45,25 +45,22 @@ static int bn_clz(const bn *src)
  * Note: the returned string should be freed with the kfree()
  */
 char *bn_to_string(const bn *src)
-{
-    // log10(x) = log2(x) / log2(10) ~= log2(x) / 3.322
-    size_t len = (8 * sizeof(int) * src->size) / 3 + 2 + src->sign;
+{   
+    size_t len = (8 * sizeof(bn_data) * src->size) / 3 + 2 + src->sign;
     char *s = (char *) malloc(len);
     char *p = s;
 
-    memset(s, '0', len - 1);
-    s[len - 1] = '\0';
+    memset(p, '0', len - 1);
+    p[len - 1] = '\0';
 
     for (int i = src->size - 1; i >= 0; i--) {
-        /* walk through every bit of bn */
-        for (unsigned int d = 1U << 31; d; d >>= 1) {
-            /* binary -> decimal string */
+        for (bn_data d = MSB_MASK; d; d >>= 1) {
             int carry = !!(d & src->number[i]);
             for (int j = len - 2; j >= 0; j--) {
-                s[j] += s[j] - '0' + carry;
-                carry = (s[j] > '9');
+                p[j] += p[j] - '0' + carry;
+                carry = (p[j] > '9');
                 if (carry)
-                    s[j] -= 10;
+                    p[j] -= 10;
             }
         }
     }
@@ -85,8 +82,8 @@ bn *bn_alloc(size_t size)
     bn *new = (bn *) malloc(sizeof(bn));
     new->size = size;
     new->capacity = size > INIT_ALLOC_SIZE ? size : INIT_ALLOC_SIZE;
-    new->number = (unsigned int *) malloc(sizeof(int) * new->capacity);
-    memset(new->number, 0, sizeof(int) * size);
+    new->number = (bn_data *) malloc(sizeof(bn_data) * new->capacity);
+    memset(new->number, 0, sizeof(bn_data) * size);
 
     new->sign = 0;
     return new;
@@ -121,13 +118,13 @@ static int bn_resize(bn *src, size_t size)
     if (size > src->capacity) {
         src->capacity =
             (size + (ALLOC_CHUNK_SIZE - 1)) & ~(ALLOC_CHUNK_SIZE - 1);
-        src->number = realloc(src->number, sizeof(int) * src->capacity);
+        src->number = realloc(src->number, sizeof(bn_data) * src->capacity);
         if (!src->number) /* realloc failed */
             return -1;
     }
 
     if (size > src->size)
-        memset(src->number + src->size, 0, sizeof(int) * (size - src->size));
+        memset(src->number + src->size, 0, sizeof(bn_data) * (size - src->size));
 
     src->size = size;
     return 0;
@@ -149,7 +146,7 @@ int bn_cpy(bn *dest, bn *src)
     if (bn_resize(dest, src->size) < 0)
         return -1;
     dest->sign = src->sign;
-    memcpy(dest->number, src->number, src->size * sizeof(int));
+    memcpy(dest->number, src->number, src->size * sizeof(bn_data));
     return 0;
 }
 
@@ -188,14 +185,14 @@ int bn_cmp(const bn *a, const bn *b)
 void bn_lshift(const bn *src, size_t shift, bn *dest)
 {
     size_t z = bn_clz(src);
-    shift %= 32;
+    shift %= DATA_BITS; // only handle shift within DATA_BITS bits
     if (!shift)
         return;
 
     /* add size if space not enough */
     if (shift > z) {
         bn_resize(dest, src->size + 1);
-        dest->number[src->size] = src->number[src->size - 1] >> (32 - shift);
+        dest->number[src->size] = src->number[src->size - 1] >> (DATA_BITS - shift);
     } else {
         bn_resize(dest, src->size);
     }
@@ -203,24 +200,24 @@ void bn_lshift(const bn *src, size_t shift, bn *dest)
     /* bit shift */
     for (int i = src->size - 1; i > 0; i--)
         dest->number[i] =
-            src->number[i] << shift | src->number[i - 1] >> (32 - shift);
+            src->number[i] << shift | src->number[i - 1] >> (DATA_BITS - shift);
     dest->number[0] = src->number[0] << shift;
 }
 
 /* |c| = |a| + |b| */
 static void bn_do_add(const bn *a, const bn *b, bn *c)
 {
-    // max digits = max(sizeof(a), sizeof(b) + 1)
-    int d = a->size + 1;
+    // max digits = max(sizeof(a), sizeof(b)) + 1
+    int d = MAX(a->size, b->size) + 1;
     bn_resize(c, d);  // round up, min size = 1
 
-    unsigned long long int carry = 0;
+    bn_data_tmp carry = 0;
     for (int i = 0; i < c->size; i++) {
-        unsigned int tmp1 = (i < a->size) ? a->number[i] : 0;
-        unsigned int tmp2 = (i < b->size) ? b->number[i] : 0;
-        carry += (unsigned long long int) tmp1 + tmp2;
+        bn_data tmp1 = (i < a->size) ? a->number[i] : 0;
+        bn_data tmp2 = (i < b->size) ? b->number[i] : 0;
+        carry += (bn_data_tmp) tmp1 + tmp2;
         c->number[i] = carry;
-        carry >>= 32;
+        carry >>= DATA_BITS;
     }
 
     bn_trim(c);
@@ -236,19 +233,26 @@ static void bn_do_sub(const bn *a, const bn *b, bn *c)
     int asize = a->size, bsize = b->size;
     bn_resize(c, asize);
 
-    long long int carry = 0;
+    bn_data borrow = 0;
     for (int i = 0; i < c->size; i++) {
-        unsigned int tmp1 = (i < asize) ? a->number[i] : 0;
-        unsigned int tmp2 = (i < bsize) ? b->number[i] : 0;
+        // bn_data tmp1 = (i < asize) ? a->number[i] : 0;
+        // bn_data tmp2 = (i < bsize) ? b->number[i] : 0;
 
-        carry = (long long int) tmp1 - tmp2 - carry;
-        if (carry < 0) {  // borrow from next
-            c->number[i] = carry + (1LL << 32);
-            carry = 1;
-        } else {
-            c->number[i] = carry;
-            carry = 0;
-        }
+        // borrow = (long long int) tmp1 - tmp2 - borrow;
+        // if (borrow < 0) {  // borrow from next
+        //     c->number[i] = borrow + (1LL << 32);
+        //     borrow = 1;
+        // } else {
+        //     c->number[i] = borrow;
+        //     borrow = 0;
+        // }
+        bn_data_tmp tmp1 = (i < asize) ? a->number[i] : 0;
+        bn_data_tmp tmp2 = (i < bsize) ? b->number[i] : 0;
+        tmp1 += DATA_MASK + 1; // pre-borrow
+        tmp2 += borrow;
+        borrow = tmp1 - tmp2;
+        c->number[i] = borrow;
+        borrow = (borrow <= DATA_MASK);
     }
 
     bn_trim(c);
@@ -296,14 +300,14 @@ void bn_sub(const bn *a, const bn *b, bn *c)
 }
 
 /* c += x, starting from offset */
-static void bn_mult_add(bn *c, int offset, unsigned long long int x)
+static void bn_mult_add(bn *c, int offset, bn_data_tmp x)
 {
-    unsigned long long int carry = 0;
+    bn_data_tmp carry = 0;
     for (int i = offset; i < c->size; i++) {
-        carry += c->number[i] + (x & 0xFFFFFFFF);
+        carry += c->number[i] + (x & DATA_MASK);
         c->number[i] = carry;
-        carry >>= 32;
-        x >>= 32;
+        carry >>= DATA_BITS;
+        x >>= DATA_BITS;
         if (!x && !carry)
             return;
     }
@@ -329,8 +333,8 @@ void bn_mult(const bn *a, const bn *b, bn *c)
 
     for (int i = 0; i < a->size; i++) {
         for (int j = 0; j < b->size; j++) {
-            unsigned long long int carry = 0;
-            carry = (unsigned long long int) a->number[i] * b->number[j];
+            bn_data_tmp carry = 0;
+            carry = (bn_data_tmp) a->number[i] * b->number[j];
             bn_mult_add(c, i + j, carry);
         }
     }
