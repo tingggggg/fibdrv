@@ -29,20 +29,46 @@ static struct class *fib_class;
 static DEFINE_MUTEX(fib_mutex);
 
 /* Recursion with cache */
-// static long long fib_sequence(long long k)
-// {
-//     if (k < 2)
-//         return k;
+static long long fib_sequence(long long k)
+{
+    if (k < 2)
+        return k;
 
-//     long long f_0 = 0, f_1 = 1, f;
-//     for (int i = 2; i <= k; i++) {
-//         f = f_0 + f_1;
-//         f_0 = f_1;
-//         f_1 = f;
-//     }
+    long long f_0 = 0, f_1 = 1, f;
+    for (int i = 2; i <= k; i++) {
+        f = f_0 + f_1;
+        f_0 = f_1;
+        f_1 = f;
+    }
 
-//     return f;
-// }
+    return f;
+}
+
+/* Calculate Fibonacci numbers by Fast Doubling */
+static long long fib_sequence_fdouble(long long n)
+{
+    if (n < 2)
+        return n;
+
+    long long f[2];
+    f[0] = 0;
+    f[1] = 1;
+
+    for (unsigned int i = 1U << (31 - __builtin_clz(n)); i; i >>= 1) {
+        long long k1 =
+            f[0] * (f[1] * 2 - f[0]); /* F(2k) = F(k) * [ 2 * F(k+1) – F(k) ] */
+        long long k2 =
+            f[0] * f[0] + f[1] * f[1]; /* F(2k+1) = F(k)^2 + F(k+1)^2 */
+        if (n & i) {                   /* current binary digit == 1 */
+            f[0] = k2;                 /* F(n) = F(2k+1) */
+            f[1] = k1 + k2; /* F(n+1) = F(2k+2) =  F(2k) +  F(2k+1) */
+        } else {
+            f[0] = k1; /* F(n) = F(2k) */
+            f[1] = k2; /* F(n+1) = F(2k+1) */
+        }
+    }
+    return f[0];
+}
 
 static int fib_open(struct inode *inode, struct file *file)
 {
@@ -86,7 +112,22 @@ static ssize_t fib_write(struct file *file,
                          size_t size,
                          loff_t *offset)
 {
-    return 1;
+    ktime_t kt;
+    switch (size) {
+    case 0:
+        kt = ktime_get();
+        fib_sequence(*offset);
+        kt = ktime_sub(ktime_get(), kt);
+        break;
+    case 1:
+        kt = ktime_get();
+        fib_sequence_fdouble(*offset);
+        kt = ktime_sub(ktime_get(), kt);
+        break;
+    default:
+        return 0;
+    }
+    return (ssize_t) ktime_to_ns(kt);
 }
 
 static loff_t fib_device_lseek(struct file *file, loff_t offset, int orig)

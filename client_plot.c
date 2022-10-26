@@ -9,7 +9,7 @@
 
 int main()
 {
-    char buf[100];
+    char write_buf[] = "testing writing";
     int offset = 100; /* TODO: try test something bigger than the limit */
 
     int fd = open(FIB_DEV, O_RDWR);
@@ -19,13 +19,12 @@ int main()
     }
 
     for (int i = 0; i <= offset; i++) {
+        long long sz, tt;
         lseek(fd, i, SEEK_SET);
-        read(fd, buf, 100);
+        sz = write(fd, write_buf, 0); /* recursion w/ cache */
+        tt = write(fd, write_buf, 1); /* fast doubling */
 
-        printf("Reading from " FIB_DEV
-               " at offset %d, returned the sequence "
-               "%s.\n",
-               i, buf);
+        printf("%d %lld %lld\n", i, sz, tt);
     }
 
     close(fd);

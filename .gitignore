@@ -29,3 +29,11 @@ dkms.conf
 # test-oriented
 client
 out
+
+# test results
+*.png
+plot_input
+plot_input_statistic
+
+# vscode
+.vscode
