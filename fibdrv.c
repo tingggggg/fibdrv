@@ -106,6 +106,11 @@ static ssize_t fib_read(struct file *file,
     return left;
 }
 
+__attribute__((always_inline)) static inline void escape(void *p)
+{
+    __asm__ volatile("" : : "g"(p) : "memory");
+}
+
 /* write operation is skipped */
 static ssize_t fib_write(struct file *file,
                          const char *buf,
@@ -113,16 +118,19 @@ static ssize_t fib_write(struct file *file,
                          loff_t *offset)
 {
     ktime_t kt;
+    long long result;
     switch (size) {
     case 0:
         kt = ktime_get();
-        fib_sequence(*offset);
+        result = fib_sequence(*offset);
         kt = ktime_sub(ktime_get(), kt);
+        escape(&result);
         break;
     case 1:
         kt = ktime_get();
-        fib_sequence_fdouble(*offset);
+        result = fib_sequence_fdouble(*offset);
         kt = ktime_sub(ktime_get(), kt);
+        escape(&result);
         break;
     default:
         return 0;
