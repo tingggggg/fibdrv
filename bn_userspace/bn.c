@@ -209,20 +209,30 @@ void bn_lshift(const bn *src, size_t shift, bn *dest)
 /* |c| = |a| + |b| */
 static void bn_do_add(const bn *a, const bn *b, bn *c)
 {
-    // max digits = max(sizeof(a), sizeof(b)) + 1
-    int d = MAX(a->size, b->size) + 1;
-    bn_resize(c, d);  // round up, min size = 1
+    if (a->size < b->size)  // a->size >= b->size
+        SWAP(a, b);
+    int asize = a->size, bsize = b->size;
+    if ((asize + 1) > c->capacity) {  // only change the capacity, not the size
+        c->capacity = (asize + 1 + (ALLOC_CHUNK_SIZE - 1)) &
+                      ~(ALLOC_CHUNK_SIZE - 1);  // ceil to 4*n
+        c->number = realloc(c->number, sizeof(bn_data) * c->capacity);
+    }
+    c->size = asize;
 
-    bn_data_tmp carry = 0;
-    for (int i = 0; i < c->size; i++) {
-        bn_data tmp1 = (i < a->size) ? a->number[i] : 0;
-        bn_data tmp2 = (i < b->size) ? b->number[i] : 0;
-        carry += (bn_data_tmp) tmp1 + tmp2;
-        c->number[i] = carry;
-        carry >>= DATA_BITS;
+    bn_data carry = 0;
+    for (int i = 0; i < bsize; i++) {
+        bn_data tmp1 = a->number[i];
+        bn_data tmp2 = b->number[i];
+        carry = (tmp1 += carry) < carry;
+        carry += (c->number[i] = tmp1 + tmp2) < tmp2;
+    }
+    for (int i = bsize; i < asize; i++) {
+        bn_data tmp1 = a->number[i];
+        carry = (c->number[i] = tmp1 + carry) < carry;
     }
 
-    bn_trim(c);
+    c->number[asize] = carry;
+    c->size += !!(carry);
 }
 
 /*
