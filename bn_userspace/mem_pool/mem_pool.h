@@ -5,6 +5,8 @@
 
 #define mem_size_t unsigned long long
 
+
+
 typedef struct _mp_memory_chunk {
     mem_size_t alloc_mem;
     struct _mp_memory_chunk *prev, *next;
@@ -30,6 +32,7 @@ typedef struct _mp_memory_pool {
     _MemoryList *mlist;
 } MemoryPool;
 
-MemoryPool *MemoryPoolInit(mem_size_t maxMemPoolSize, mem_size_t memPoolSize)
+MemoryPool *MemoryPoolInit(mem_size_t maxMemPoolSize, mem_size_t memPoolSize);
+void *MemoryPoolAlloc(MemoryPool *mp, mem_size_t allocSize);
 
 #endif /* _MEMORYPOOL_H_ */
