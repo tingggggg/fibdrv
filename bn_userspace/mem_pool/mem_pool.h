@@ -34,5 +34,6 @@ typedef struct _mp_memory_pool {
 
 MemoryPool *MemoryPoolInit(mem_size_t maxMemPoolSize, mem_size_t memPoolSize);
 void *MemoryPoolAlloc(MemoryPool *mp, mem_size_t allocSize);
+int MemoryPoolFree(MemoryPool *mp, void *p);
 
 #endif /* _MEMORYPOOL_H_ */

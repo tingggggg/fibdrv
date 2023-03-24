@@ -14,7 +14,9 @@ int main()
 
     struct TAT *tat = (struct TAT *) MemoryPoolAlloc(mp, sizeof(struct TAT));
 
-    free(tat);
+    printf("Address of tat: %ld\n", tat);
+   
+    MemoryPoolFree(mp, tat);
 
     free(mp);
 
