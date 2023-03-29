@@ -14,4 +14,4 @@ typedef struct _mp_mem_pool {
 } MemoryPool;
 
 void *my_malloc(MemoryPool *p, mem_size_t size);
-void my_free(MemoryPool *pool, void *s);
+void my_free(MemoryPool *pool, const void *s);

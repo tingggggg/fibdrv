@@ -30,45 +30,63 @@ static void *MEMORY;
         p->free_list = ck;                             \
     } while (0)
 
-#define INSERT_TO_LIST(list, ck)      \
-    do {                              \
-        _MP_Chunk **indirect = &list; \
-        while (*indirect && ck->start > (*indirect)->start) {   \
-            indirect = &(*indirect)->next;                      \
-        }   \
-        ck->next = *indirect;         \
-        *indirect = ck;               \
+#define INSERT_TO_LIST(list, ck)                              \
+    do {                                                      \
+        _MP_Chunk **indirect = &list;                         \
+        while (*indirect && ck->start > (*indirect)->start) { \
+            indirect = &(*indirect)->next;                    \
+        }                                                     \
+        ck->next = *indirect;                                 \
+        *indirect = ck;                                       \
     } while (0)
 
-#define REMOVE_FROM_LIST(list, ck, s)           \
-    do {                                        \
-        _MP_Chunk **indirect = &list;           \
-        while (*indirect) {                     \
-            if ((*indirect)->start == s) {      \
-                ck = *indirect;          \
-                *indirect = (*indirect)->next;  \
-                break;                          \
-            }                                   \
-            indirect = &(*indirect)->next;      \
-        }                                       \
-    } while (0);
-
-// Merge memory chunk
-#define MERGE_CHUNK(target_list)                                   \
-    do {                                                    \
-        _MP_Chunk *list = target_list;                      \
-        _MP_Chunk *tmp = NULL;                              \
-        while (list && list->next) {                        \
-            if ((void *)((char *) list->start + list->mem_size) >= list->next->start) {   \
-                tmp = list->next;                        \
-                list->mem_size += tmp->mem_size;            \
-                list->next = tmp->next;                     \
-                free(tmp);                                  \
-                continue;                                   \
-            }                                               \
-            list = list->next;                              \
-        }                                                   \
+#define REMOVE_FROM_LIST(list, ck, s)          \
+    do {                                       \
+        _MP_Chunk **indirect = &list;          \
+        while (*indirect) {                    \
+            if ((*indirect)->start == s) {     \
+                ck = *indirect;                \
+                *indirect = (*indirect)->next; \
+                break;                         \
+            }                                  \
+            indirect = &(*indirect)->next;     \
+        }                                      \
     } while (0)
+
+#define MERGE_TWO_CHUNK(ck_fir, ck_sec)       \
+    do {                                      \
+        ck_fir->mem_size += ck_sec->mem_size; \
+        ck_fir->next = ck_sec->next;          \
+        free(ck_sec);                         \
+    } while (0)
+
+// Merge memory list
+#define MERGE_LIST(target_list)                                     \
+    do {                                                            \
+        _MP_Chunk *list = target_list;                              \
+        while (list && list->next) {                                \
+            if ((void *) ((char *) list->start + list->mem_size) >= \
+                list->next->start) {                                \
+                MERGE_TWO_CHUNK(list, list->next);                  \
+                continue;                                           \
+            }                                                       \
+            list = list->next;                                      \
+        }                                                           \
+    } while (0)
+
+#define ALLOC_CHUNK(pool, alloc_ck, free_ck, size)                       \
+    do {                                                                 \
+        if (size == free_ck->mem_size) {                                 \
+            REMOVE_FROM_LIST(pool->free_list, alloc_ck, free_ck->start); \
+        } else {                                                         \
+            INITIALIZE_MEM_CHUNK(alloc_ck, free_ck->start, size);        \
+            free_ck->start = (char *) free_ck->start + size;             \
+            free_ck->mem_size -= size;                                   \
+        }                                                                \
+        alloc_ck->is_free = 0;                                           \
+        pool->pool_size -= size;                                         \
+    } while (0)
+
 
 void *my_malloc(MemoryPool *p, mem_size_t size)
 {
@@ -77,33 +95,19 @@ void *my_malloc(MemoryPool *p, mem_size_t size)
     while (free_list) {
         if (free_list->is_free && free_list->mem_size >= size) {
             _MP_Chunk *allocated_ck = NULL;
-            if (size == free_list->mem_size) {
-                // allocated_ck = free_list;
-                REMOVE_FROM_LIST(p->free_list, allocated_ck, free_list->start);
-                if (allocated_ck)
-                    INSERT_TO_LIST(p->alloc_list, allocated_ck);
-            } else {
-                // Create new memory chunk
-                INITIALIZE_MEM_CHUNK(allocated_ck, free_list->start, size);
-                allocated_ck->is_free = 0;
-                INSERT_TO_LIST(p->alloc_list, allocated_ck);
 
-                free_list->start = (char *) free_list->start + size;
-                free_list->mem_size -= size;
-            }
-            p->pool_size -= size;
-            
+            ALLOC_CHUNK(p, allocated_ck, free_list, size);
+
+            INSERT_TO_LIST(p->alloc_list, allocated_ck);
             return allocated_ck->start;
         }
-
         free_list = free_list->next;
     }
-
     return (void *) 0;
 }
 
-void my_free(MemoryPool *pool, void *s)
-{   
+void my_free(MemoryPool *pool, const void *s)
+{
     _MP_Chunk *target_ck = NULL;
 
     // Remove chunk from allocated list
@@ -115,8 +119,8 @@ void my_free(MemoryPool *pool, void *s)
         pool->pool_size += target_ck->mem_size;
         INSERT_TO_LIST(pool->free_list, target_ck);
 
-        MERGE_CHUNK(pool->free_list);
-    } 
+        MERGE_LIST(pool->free_list);
+    }
 }
 
 void *my_realloc(MemoryPool *pool, void *s, mem_size_t new_size)
@@ -127,83 +131,104 @@ void *my_realloc(MemoryPool *pool, void *s, mem_size_t new_size)
         origin_ck = &(*origin_ck)->next;
     }
 
+    // Target chunk not found
     if (!*origin_ck)
         return (void *) 0;
 
     if (new_size == (*origin_ck)->mem_size)
         return s;
-    
-    // bigger space
-    if (new_size > (*origin_ck)->mem_size) {
+
+    if (new_size > (*origin_ck)->mem_size) {  // bigger space
         void *end = (void *) ((char *) s + (*origin_ck)->mem_size);
 
         _MP_Chunk *free_ck = pool->free_list;
         mem_size_t need_free_size = new_size - (*origin_ck)->mem_size;
-        
+
         // Find connected chunk in free list
         while (free_ck) {
-
             if (free_ck->start == end && free_ck->mem_size >= need_free_size)
                 break;
             free_ck = free_ck->next;
         }
+        if (free_ck) {
+            _MP_Chunk *next_allocated_ck = NULL;
+            ALLOC_CHUNK(pool, next_allocated_ck, free_ck, need_free_size);
 
-        if (free_ck)
-            printf("free_ck start : %p\n", free_ck->start);
-    } else { // smaller space
+            MERGE_TWO_CHUNK((*origin_ck), next_allocated_ck);
+            return (*origin_ck)->start;
+        }
 
+        // Find new chunk
+        my_free(pool, (*origin_ck)->start);  // Free origin space
+        s = my_malloc(pool, new_size);       // Alloc new space
+        return s;
+    } else {  // smaller space
+        _MP_Chunk *free_ck;
+        mem_size_t free_size = (*origin_ck)->mem_size - new_size;
+        INITIALIZE_MEM_CHUNK(free_ck, (void *) ((char *) s + new_size),
+                             free_size);
+        INSERT_TO_LIST(pool->free_list, free_ck);
+        pool->pool_size += free_size;
+
+        (*origin_ck)->mem_size -= free_size;
+        return (*origin_ck)->start;
     }
 
-    return s;
+    // Not enough space found
+    my_free(pool, s);
+    return (void *) 0;
 }
 
 /* Test API */
 void show_pool(MemoryPool *pool)
 {
+    printf("\n");
     printf(" ***** Show Pool ***** \n");
-    printf("* free list [pool size: %llu]:\n", pool->pool_size);
+    printf(" * free list [pool size: %llu]:\n", pool->pool_size);
     _MP_Chunk *list = pool->free_list;
     while (list) {
         printf("\tSize: %llu, start: %p, is_free: %d\n", list->mem_size,
-                                                         list->start,
-                                                         list->is_free);
+               list->start, list->is_free);
         list = list->next;
     }
 
-    printf("* alloc list:\n");
+    printf(" * alloc list:\n");
     list = pool->alloc_list;
     while (list) {
         printf("\tSize: %llu, start: %p, is_free: %d\n", list->mem_size,
-                                                         list->start,
-                                                         list->is_free);
+               list->start, list->is_free);
         list = list->next;
     }
+    printf(" ********************* \n");
     printf("\n");
 }
 
 int main()
 {
     MemoryPool *pool;
-    INITIALIZE_MEM_POOL(pool, 32);
+    INITIALIZE_MEM_POOL(pool, 28);
 
     show_pool(pool);
-    // printf("Pool free_list start : %p\n", pool->free_list->start);
-    // printf("Pool free_list mem size : %llu\n", pool->free_list->mem_size);
 
     int *a = (int *) my_malloc(pool, sizeof(int) * 1);
     int *b = (int *) my_malloc(pool, sizeof(int) * 2);
     printf("Integer a address : %p\n", a);
     printf("Integer b address : %p\n", b);
 
-    my_free(pool, a);
-    show_pool(pool);
+    // show_pool(pool);
 
     int *c = (int *) my_malloc(pool, sizeof(int) * 2);
-    printf("Integer c address : %p\n", c);
+    int *d = (int *) my_malloc(pool, sizeof(int) * 1);
+
+    printf("c address : %p\n", c);
+    printf("Integer d address : %p\n", d);
 
     show_pool(pool);
 
-    my_realloc(pool, c, sizeof(int) * 5);
+    my_free(pool, d);
+    c = my_realloc(pool, c, (sizeof(int) * 4));
+    printf("c address : %p\n", c);
+    show_pool(pool);
 
     return 0;
 }
