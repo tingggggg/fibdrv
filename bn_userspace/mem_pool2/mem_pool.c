@@ -48,7 +48,7 @@ void *my_malloc(MemoryPool *p, mem_size_t size)
             allocated_ck->is_free = 0;
             INSERT_LIST(p->alloc_list, allocated_ck);
 
-            free_list->start = (char *) free_list->start + 16;
+            free_list->start = (char *) free_list->start + size;
             free_list->mem_size -= size;
             p->pool_size -= size;
 
@@ -96,25 +96,6 @@ void show_node_list(node_t *n)
 
 int main()
 {
-    printf("Sizeof(node_t): %zu\n", sizeof(node_t));
-
-    node_t *n, *n2;
-
-    alloc_node(n, node_t, 6);
-    // show_node_list(n);
-
-    alloc_node(n2, node_t, 4);
-    // show_node_list(n2);
-
-    block_t *b = NULL;
-    BLOCK_INS_NODE(b, n);
-    BLOCK_INS_NODE(b, n2);
-
-    while (b) {
-        show_node_list(b->node_list_head);
-        b = b->next;
-    }
-
     printf("*****\n");
 
     // INITIALIZE_MEMORY(16);
@@ -125,7 +106,10 @@ int main()
     printf("Pool free_list mem size : %llu\n", pool->free_list->mem_size);
 
     int *a = (int *) my_malloc(pool, sizeof(int));
+    int *b = (int *) my_malloc(pool, sizeof(int) * 2);
     printf("Integer a address : %p\n", a);
+    printf("Integer b address : %p\n", b);
+
 
     printf("* Pool free_list start : %p\n", pool->free_list->start);
     printf("* Pool free_list mem size : %llu\n", pool->free_list->mem_size);

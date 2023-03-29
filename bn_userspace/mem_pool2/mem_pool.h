@@ -14,14 +14,3 @@ typedef struct _mp_mem_pool {
 } MemoryPool;
 
 void *my_malloc(MemoryPool *p, mem_size_t size);
-
-
-typedef struct node {
-    int val;
-    struct node *next;
-} node_t;
-
-typedef struct block {
-    node_t *node_list_head;
-    struct block *next;
-} block_t;
