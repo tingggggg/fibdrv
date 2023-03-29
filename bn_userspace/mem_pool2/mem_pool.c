@@ -119,6 +119,44 @@ void my_free(MemoryPool *pool, void *s)
     } 
 }
 
+void *my_realloc(MemoryPool *pool, void *s, mem_size_t new_size)
+{
+    // Find chunk
+    _MP_Chunk **origin_ck = &pool->alloc_list;
+    while ((*origin_ck) && s != (void *) (*origin_ck)->start) {
+        origin_ck = &(*origin_ck)->next;
+    }
+
+    if (!*origin_ck)
+        return (void *) 0;
+
+    if (new_size == (*origin_ck)->mem_size)
+        return s;
+    
+    // bigger space
+    if (new_size > (*origin_ck)->mem_size) {
+        void *end = (void *) ((char *) s + (*origin_ck)->mem_size);
+
+        _MP_Chunk *free_ck = pool->free_list;
+        mem_size_t need_free_size = new_size - (*origin_ck)->mem_size;
+        
+        // Find connected chunk in free list
+        while (free_ck) {
+
+            if (free_ck->start == end && free_ck->mem_size >= need_free_size)
+                break;
+            free_ck = free_ck->next;
+        }
+
+        if (free_ck)
+            printf("free_ck start : %p\n", free_ck->start);
+    } else { // smaller space
+
+    }
+
+    return s;
+}
+
 /* Test API */
 void show_pool(MemoryPool *pool)
 {
@@ -140,6 +178,7 @@ void show_pool(MemoryPool *pool)
                                                          list->is_free);
         list = list->next;
     }
+    printf("\n");
 }
 
 int main()
@@ -151,26 +190,20 @@ int main()
     // printf("Pool free_list start : %p\n", pool->free_list->start);
     // printf("Pool free_list mem size : %llu\n", pool->free_list->mem_size);
 
-    int *a = (int *) my_malloc(pool, sizeof(int) * 3);
+    int *a = (int *) my_malloc(pool, sizeof(int) * 1);
     int *b = (int *) my_malloc(pool, sizeof(int) * 2);
     printf("Integer a address : %p\n", a);
     printf("Integer b address : %p\n", b);
 
+    my_free(pool, a);
     show_pool(pool);
 
-    // my_free(pool, a);
-    // my_free(pool, b);
-
-    // show_pool(pool);
-
-    int *c = (int *) my_malloc(pool, sizeof(int) * 1);
+    int *c = (int *) my_malloc(pool, sizeof(int) * 2);
     printf("Integer c address : %p\n", c);
 
-    my_free(pool, b);
     show_pool(pool);
 
-    int *d = (int *) my_malloc(pool, sizeof(int) * 3);
-    printf("Integer d address : %p\n", d);
+    my_realloc(pool, c, sizeof(int) * 5);
 
     return 0;
 }
