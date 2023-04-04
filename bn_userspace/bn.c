@@ -126,14 +126,13 @@ static int bn_resize(bn *src, size_t size)
         src->capacity =
             (size + (ALLOC_CHUNK_SIZE - 1)) & ~(ALLOC_CHUNK_SIZE - 1);
         // src->number = realloc(src->number, sizeof(bn_data) * src->capacity);
-        // src->number = my_realloc(pool, src->number, sizeof(bn_data) * src->capacity);
-        
-        
-        bn_data *tmp = (bn_data *) my_malloc(pool,  sizeof(bn_data) * src->capacity);
-        memcpy(tmp, src->number, sizeof(bn_data) * src->size);
-        my_free(pool, src->number);
-        src->number = tmp;
-        
+        src->number =
+            my_realloc(pool, src->number, sizeof(bn_data) * src->capacity);
+
+        // bn_data *tmp = (bn_data *) my_malloc(pool,  sizeof(bn_data) *
+        // src->capacity); memcpy(tmp, src->number, sizeof(bn_data) *
+        // src->size); my_free(pool, src->number); src->number = tmp;
+
         if (!src->number) /* realloc failed */
             return -1;
     }
@@ -231,13 +230,12 @@ static void bn_do_add(const bn *a, const bn *b, bn *c)
         c->capacity = (asize + 1 + (ALLOC_CHUNK_SIZE - 1)) &
                       ~(ALLOC_CHUNK_SIZE - 1);  // ceil to 4*n
         // c->number = realloc(c->number, sizeof(bn_data) * c->capacity);
-        // c->number = my_realloc(pool, c->number, sizeof(bn_data) * c->capacity);
-        
-        bn_data *tmp = (bn_data *) my_malloc(pool, sizeof(bn_data) * c->capacity);
-        memcpy(tmp, c->number, sizeof(bn_data) * c->size);
-        my_free(pool, c->number);
-        c->number = tmp;
-        
+        c->number = my_realloc(pool, c->number, sizeof(bn_data) * c->capacity);
+
+        // bn_data *tmp = (bn_data *) my_malloc(pool, sizeof(bn_data) *
+        // c->capacity); memcpy(tmp, c->number, sizeof(bn_data) * c->size);
+        // my_free(pool, c->number);
+        // c->number = tmp;
     }
     c->size = asize;
 
