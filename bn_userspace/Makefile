@@ -22,7 +22,8 @@ deps2 := $(OBJS2:%.o=.%.o.d)
 
 OBJS3 := \
 	fib_show.o\
-	bn.o
+	bn.o\
+	mem_pool.o
 deps3 := $(OBJS3:%.o=.%.o.d)
 
 fib: $(OBJS)
