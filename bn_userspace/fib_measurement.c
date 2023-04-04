@@ -1,12 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+
 #include "bn.h"
+#include "mem_pool.h"
+
+extern MemoryPool *pool;
 
 #define ITH 1000
 
 int main()
 {
+    initialize_mem_pool(&pool, 10000);
+
     bn *fib = bn_alloc(1);
 
     for (int i = 0; i < ITH; i++)

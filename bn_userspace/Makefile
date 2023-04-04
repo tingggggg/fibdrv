@@ -17,7 +17,8 @@ deps := $(OBJS:%.o=.%.o.d)
 
 OBJS2 := \
 	fib_measurement.o\
-	bn.o
+	bn.o\
+	mem_pool.o
 deps2 := $(OBJS2:%.o=.%.o.d)
 
 OBJS3 := \
