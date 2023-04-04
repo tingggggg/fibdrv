@@ -20,8 +20,6 @@ static void *MEMORY;
         ck->is_free = 1;                          \
     } while (0)
 
-
-
 #define INSERT_TO_LIST(list, ck)                              \
     do {                                                      \
         _MP_Chunk **indirect = &list;                         \
@@ -189,28 +187,28 @@ void *my_realloc(MemoryPool *pool, void *s, mem_size_t new_size)
 }
 
 /* Test API */
-void show_pool(MemoryPool *pool)
-{
-    printf("\n");
-    printf(" ***** Show Pool ***** \n");
-    printf(" * free list [pool size: %llu]:\n", pool->pool_size);
-    _MP_Chunk *list = pool->free_list;
-    while (list) {
-        printf("\tSize: %llu, start: %p, is_free: %d\n", list->mem_size,
-               list->start, list->is_free);
-        list = list->next;
-    }
+// void show_pool(MemoryPool *pool)
+// {
+//     printf("\n");
+//     printf(" ***** Show Pool ***** \n");
+//     printf(" * free list [pool size: %llu]:\n", pool->pool_size);
+//     _MP_Chunk *list = pool->free_list;
+//     while (list) {
+//         printf("\tSize: %llu, start: %p, is_free: %d\n", list->mem_size,
+//                list->start, list->is_free);
+//         list = list->next;
+//     }
 
-    printf(" * alloc list:\n");
-    list = pool->alloc_list;
-    while (list) {
-        printf("\tSize: %llu, start: %p, is_free: %d\n", list->mem_size,
-               list->start, list->is_free);
-        list = list->next;
-    }
-    printf(" ********************* \n");
-    printf("\n");
-}
+//     printf(" * alloc list:\n");
+//     list = pool->alloc_list;
+//     while (list) {
+//         printf("\tSize: %llu, start: %p, is_free: %d\n", list->mem_size,
+//                list->start, list->is_free);
+//         list = list->next;
+//     }
+//     printf(" ********************* \n");
+//     printf("\n");
+// }
 
 // int main()
 // {
